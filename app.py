@@ -1,41 +1,41 @@
 import streamlit as st
-from pyspark.sql import SparkSession
-import pyspark.sql.functions as F
+import engine
 
-st.set_page_config(layout="wide", page_title="Emission EDA")
+st.title("Data Transformation Pipeline")
 
-@st.cache_resource
-def get_spark():
-    return SparkSession.builder \
-        .appName("EmissionAnalysis") \
-        .config("spark.driver.memory", "8g") \
-        .getOrCreate()
+CSV_PATH = "/app/data/data.csv"
 
-spark = get_spark()
+# --- STEP 1: LOAD (From previous step) ---
+if st.button("Step 1: Show Raw Data"):
+    st.session_state['df'] = engine.load_dataset(CSV_PATH)
+    st.write("Current Columns:", st.session_state['df'].columns)
+    st.dataframe(st.session_state['df'].limit(5).toPandas())
 
-st.title("Emission Data")
+# --- STEP 2: REMOVE COLUMN ---
+st.divider()
+st.header("Step 2: Clean Dataset")
 
-
-path = "/app/data/data.csv" 
-
-if st.sidebar.button("Step 1: Connect to Data"):
-    df = spark.read.csv(path, header=True, inferSchema=False)
-    
-    st.write("### Data Overview")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric("Column Count", len(df.columns))
-    with col2:
-
-        st.info("Click below to count total rows (slow)")
-        if st.button("Count Rows"):
-            st.write(f"Total Rows: {df.count():,}")
+if 'df' in st.session_state:
+    if st.button("Remove 'Model Year Change'"):
+        # Call the engine logic
+        df_cleaned = engine.remove_specific_column(st.session_state['df'])
+        
+        # Update session state with the new cleaned dataframe
+        st.session_state['df_cleaned'] = df_cleaned
+        
+        st.success("Column 'Model Year Change' has been removed!")
+        
+        # Visual Verification
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Original Column Count:**")
+            st.write(len(st.session_state['df'].columns))
+        with col2:
+            st.write("**New Column Count:**")
+            st.write(len(df_cleaned.columns))
             
-    st.write("### First 10 Rows (Preview)")
-    st.dataframe(df.limit(10).toPandas())
+        st.write("### New Data Preview:")
+        st.dataframe(df_cleaned.limit(10).toPandas())
+else:
+    st.warning("Run Step 1.")
 
-    st.write("### Data Sampling for Visualization")
-    st.write("Taking a 0.1% random sample to keep the chart fast...")
-    sample_pd = df.sample(fraction=0.001).toPandas()
-    st.line_chart(sample_pd.iloc[:, 1]) 

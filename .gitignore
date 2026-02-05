@@ -1,12 +1,15 @@
-# Ignore the large data folder
+# Ignore the massive data files
 data/
+*.csv
+*.parquet
+*.json
 
-# Ignore Python cache
+# Ignore Spark and Python temporary files
 __pycache__/
+.ipynb_checkpoints/
+spark-warehouse/
+metastore_db/
 *.pyc
-
-# Ignore OS files
-.DS_Store
 
 # Ignore environment variables
 .env
