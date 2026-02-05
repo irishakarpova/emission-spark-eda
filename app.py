@@ -38,4 +38,4 @@ if st.sidebar.button("Step 1: Connect to Data"):
     st.write("### Data Sampling for Visualization")
     st.write("Taking a 0.1% random sample to keep the chart fast...")
     sample_pd = df.sample(fraction=0.001).toPandas()
-    st.line_chart(sample_pd.iloc[:, 1]) # Plots the second column as a test
+    st.line_chart(sample_pd.iloc[:, 1]) 
