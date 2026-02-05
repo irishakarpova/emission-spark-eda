@@ -1,0 +1,13 @@
+services:
+  spark-eda:
+    build: .
+    ports:
+      - '8501:8501'
+    volumes:
+      - .:/app
+      - '${DATA_PATH}:/app/data'
+    shm_size: '2gb'
+    deploy:
+      resources:
+        limits:
+          memory: 12G
