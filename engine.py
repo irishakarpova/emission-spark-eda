@@ -35,8 +35,11 @@ def remove_specific_column(df, col_names=[
     "Wheel Removed 2",
     "Wheel Removed 1",
     "Ten-Day Extension Issued",
-    "Emissions Waiver Issued"
-    
-    
+    "Emissions Waiver Issued",
+    "On-Board Diagnostic Check Result"
     ]):
     return df.drop(*col_names)
+
+
+def save_as_parquet(df, output_path):
+    df.write.mode("overwrite").parquet(output_path)

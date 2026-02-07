@@ -1,5 +1,6 @@
 import streamlit as st
 import engine
+import time
 
 st.title("Data Transformation Pipeline")
 
@@ -16,7 +17,7 @@ st.divider()
 st.header("Step 2: Data cleaning")
 
 if 'df' in st.session_state:
-    if st.button("Remove irrelevant columns"):
+    if st.button("c"):
         # Call the engine logic
         df_cleaned = engine.remove_specific_column(st.session_state['df'])
         
@@ -38,4 +39,30 @@ if 'df' in st.session_state:
         st.dataframe(df_cleaned.limit(10).toPandas())
 else:
     st.warning("Run Step 1.")
+    
+    
+# --- STEP 3: SAVE TO PARQUET ---
+st.divider()
+st.header("Step 3: Compress & Save to Parquet")
+
+if 'df_cleaned' in st.session_state:
+
+    PARQUET_PATH = "/app/data/cleaned_emissions.parquet"
+
+    if st.button("Start Compression"):
+        start_time = time.time()
+        
+        with st.spinner("Spark is processing the 13GB file..."):
+            try:
+                engine.save_as_parquet(st.session_state['df_cleaned'], PARQUET_PATH)
+                
+                duration = time.time() - start_time
+                st.success(f"File saved in {duration:.1f} seconds.")
+                st.balloons()
+                
+                st.info(f"Check your folder for: **cleaned_emissions.parquet**")
+            except Exception as e:
+                st.error(f"Error during save: {e}")
+else:
+    st.warning("Cmplete Step 2 before saving.")    
 
