@@ -5,18 +5,18 @@ st.title("Data Transformation Pipeline")
 
 CSV_PATH = "/app/data/data.csv"
 
-# --- STEP 1: LOAD (From previous step) ---
+# STEP 1: LOAD (From previous step) ---
 if st.button("Step 1: Show Raw Data"):
     st.session_state['df'] = engine.load_dataset(CSV_PATH)
     st.write("Current Columns:", st.session_state['df'].columns)
     st.dataframe(st.session_state['df'].limit(5).toPandas())
 
-# --- STEP 2: REMOVE COLUMN ---
+# STEP 2: REMOVE COLUMNS ---
 st.divider()
-st.header("Step 2: Clean Dataset")
+st.header("Step 2: Data cleaning")
 
 if 'df' in st.session_state:
-    if st.button("Remove 'Model Year Change'"):
+    if st.button("Remove irrelevant columns"):
         # Call the engine logic
         df_cleaned = engine.remove_specific_column(st.session_state['df'])
         

@@ -11,5 +11,32 @@ def load_dataset(path):
     # inferSchema=False makes this nearly instant even for 13GB
     return spark.read.csv(path, header=True, inferSchema=False)
 
-def remove_specific_column(df, col_name="Model Year Change"):
-    return df.drop(col_name)
+def remove_specific_column(df, col_names=[
+    "Model Year Change", 
+    "Registration Class", 
+    "No Registration Reason",
+    "DMV Facility Number",
+    "Fuel Type",
+    "Fuel Type Change",
+    "Vehicle Transmission Type",
+    "NYMA",
+    "NYMA Change",
+    "NYVIP Unit Number",
+    "Certified Inspector Number",
+    "Inspection Certificate Number",
+    "Data Entry Method",
+    "Inspection Test Type",
+    "Gas Cap Replacement",
+    "Safety Inspection Result",
+    "Advisory Message",
+    "Warning Message",
+    "Wheel Removed 4",
+    "Wheel Removed 3",
+    "Wheel Removed 2",
+    "Wheel Removed 1",
+    "Ten-Day Extension Issued",
+    "Emissions Waiver Issued"
+    
+    
+    ]):
+    return df.drop(*col_names)
