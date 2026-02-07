@@ -1,4 +1,5 @@
 from pyspark.sql import SparkSession
+import os
 
 def get_spark():
     return SparkSession.builder \
@@ -6,10 +7,16 @@ def get_spark():
         .config("spark.driver.memory", "8g") \
         .getOrCreate()
 
-def load_dataset(path):
+def load_dataset(csv_path, parquet_path):
     spark = get_spark()
-    # inferSchema=False makes this nearly instant even for 13GB
-    return spark.read.csv(path, header=True, inferSchema=False)
+    
+    # Check if the compressed Parquet exists first
+    if os.path.exists(parquet_path):
+        print("Loading compressed Parquet data")
+        return spark.read.parquet(parquet_path)
+    else:
+        print("Parquet not found. Loading raw CSV")
+        return spark.read.csv(csv_path, header=True, inferSchema=False)
 
 def remove_specific_column(df, col_names=[
     "Model Year Change", 
