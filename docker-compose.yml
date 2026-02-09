@@ -1,6 +1,10 @@
 services:
   spark-eda:
     build: .
+    tty: true
+    stdin_open: true
+    # This keeps the container awake so it doesn't stop immediately
+    command: streamlit run app.py --server.port=8501 --server.address=0.0.0.0
     ports:
       - '8501:8501'
     volumes:
@@ -11,3 +15,7 @@ services:
       resources:
         limits:
           memory: 12G
+    environment:
+      - KAGGLE_USERNAME=${KAGGLE_USERNAME}
+      - KAGGLE_KEY=${KAGGLE_KEY}
+      - KAGGLE_CONFIG_DIR=/app

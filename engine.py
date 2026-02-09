@@ -1,6 +1,8 @@
 from pyspark.sql import SparkSession
 import os
 import shutil
+from kaggle.api.kaggle_api_extended import KaggleApi
+
 
 def get_spark():
     return SparkSession.builder \
@@ -59,3 +61,16 @@ def save_as_parquet(df, output_path):
       .mode("overwrite") \
       .option("compression", "snappy") \
       .parquet(output_path)
+      
+      
+def download_from_kaggle(dataset_slug, download_path):
+    """
+    dataset_slug: "user/dataset-name" (e.g., "mohansacharya/graduate-admissions")
+    download_path: Local folder to save the CSV
+    """
+    api = KaggleApi()
+    api.authenticate()
+    
+    # Download and unzip
+    api.dataset_download_files(dataset_slug, path=download_path, unzip=True)
+    return os.listdir(download_path)

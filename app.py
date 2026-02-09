@@ -1,9 +1,8 @@
 import streamlit as st
 import engine
 import time
-import shutil
-import os
 import plotly.express as px
+
 
 st.title("Data Pipeline")
 
@@ -111,3 +110,40 @@ if 'df' in st.session_state:
                          color_continuous_scale='Viridis')
             
             st.plotly_chart(fig, use_container_width=True)
+            
+            
+
+# --- STEP 1: LOAD FROM KAGGLE ---
+st.header("Step 1: Fetch Kaggle Data")
+
+# The slug for your specific dataset
+dataset_slug = "akshaydattatraykhare/car-details-dataset" 
+
+if st.button("Download & Connect to Kaggle"):
+    with st.spinner("Downloading from Kaggle..."):
+        try:
+            # 1. Download files using the function in engine.py
+            # This saves files to your /app/data/ directory
+            downloaded_files = engine.download_from_kaggle(dataset_slug, "/app/data/")
+            
+            # 2. Find the CSV file in the downloaded list
+            csv_files = [f for f in downloaded_files if f.endswith('.csv')]
+            
+            if not csv_files:
+                st.error("No CSV file found in the downloaded Kaggle dataset.")
+            else:
+                # Use the first CSV found
+                target_csv = f"/app/data/{csv_files[0]}"
+                
+                # 3. Load into Spark using your existing engine function
+                df = engine.load_dataset(target_csv, PARQUET_PATH)
+                
+                # 4. Store in session state
+                st.session_state['df'] = df
+                
+                st.success(f"Connected! Loaded file: {csv_files[0]}")
+                st.dataframe(df.limit(10).toPandas())
+                
+        except Exception as e:
+            st.error(f"Error connecting to Kaggle: {e}")
+            st.info("Check if your KAGGLE_USERNAME and KAGGLE_KEY are set in your environment.")

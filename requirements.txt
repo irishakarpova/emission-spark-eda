@@ -1,2 +1,7 @@
-plotly
+pyspark==3.5.0
+streamlit
 pandas
+pyarrow
+kaggle
+python-dotenv
+plotly
