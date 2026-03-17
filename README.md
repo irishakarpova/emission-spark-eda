@@ -1,20 +1,20 @@
-## Data Engineering Pipeline that transforms massive government records into a usable dataset.
+#### Data Engineering Pipeline that transforms massive government records into a usable dataset.
 
-### - The "Engine" Layer (PySpark)
+- The "Engine" Layer (PySpark)
 
-### - The "Interface" Layer (Streamlit & Docker)
+- The "Interface" Layer (Streamlit & Docker)
 
-## How to Run:
+#### How to Run:
 
-# 1. Build the image and tag it as 'vin-pipeline'
+#### 1. Build the image and tag it as 'vin-pipeline'
 
 docker build -t vin-pipeline .
 
-# 2. Remove any existing container with this name to avoid conflicts
+#### 2. Remove any existing container with this name to avoid conflicts
 
 docker rm -f vin-app || true && docker
 
-# 3. Run the container
+#### 3. Run the container
 
 run --rm -p 8501:8501 \
  --name vin-pipeline \
