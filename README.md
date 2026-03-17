@@ -1,8 +1,14 @@
-#### Data Engineering Pipeline that transforms massive government records into a usable dataset.
+#### Data Engineering Pipeline:
 
-- The "Engine" Layer (PySpark)
+1. Apache Parquet
+   Converts the raw CSV into an Apache Parquet format.
 
-- The "Interface" Layer (Streamlit & Docker)
+2. PySpark
+   Uses Apache Spark to handle 57 million rows without crashing.
+   Logic: Pulls engine data (Displacement, HP, Cylinders) from the NHTSA API in organized batches of 50.
+
+3. Streamlit & Docker
+   A Streamlit dashboard that lets you click to "Convert," "Map," or "Export" data.
 
 #### How to Run:
 
