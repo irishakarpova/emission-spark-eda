@@ -1,149 +1,147 @@
+import os
 import streamlit as st
-import engine
-import time
-import plotly.express as px
+import pandas as pd
+from pyspark.sql import functions as F
+from engine import DataEngine
 
+st.set_page_config(page_title="VIN Data Pipeline", layout="wide")
+st.title("VIN Processing Pipeline")
 
-st.title("Data Pipeline")
-
+# PATHS 
 CSV_PATH = "/app/data/data.csv"
 PARQUET_PATH = "/app/data/cleaned_emissions.parquet"
+MAPPING_PATH = "/app/data/nhtsa_mapping.parquet"
+FINAL_EXPORT_PATH = "/app/data/labeled_vehicle_data.parquet"
 
+# Initialize Engine
+if 'engine_instance' not in st.session_state:
+    st.session_state['engine_instance'] = DataEngine()
+data_engine = st.session_state['engine_instance']
 
-# --- STEP 1: LOAD ---
-if st.button("Connect to Dataset"):
-    df = engine.load_dataset(CSV_PATH, PARQUET_PATH)
-    st.session_state['df'] = df
-    
-    source = "Parquet" if "parquet" in str(df).lower() else "CSV"
-    st.success(f"Connected via {source}")
-    st.dataframe(df.limit(10).toPandas())
+# Get file size in GB
+def get_dir_size_gb(path):
+    if not os.path.exists(path): return 0
+    if os.path.isfile(path):
+        return os.path.getsize(path) / (1024**3)
+# For Parquet folders
+    total = 0
+    for dirpath, dirnames, filenames in os.walk(path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            total += os.path.getsize(fp)
+    return total / (1024**3)
 
-# --- STEP 2: REMOVE COLUMNS ---
-st.divider()
-st.header("Step 2: Data Cleaning")
+# --- STEP 1: DATA LOADING ---
+st.header("Step 1: Data Preparation.")
 
-if 'df' in st.session_state:
+col1, col2 = st.columns(2)
 
-    if st.button("Execute Column Removal"):
-        with st.spinner("Cleaning..."):
-            df_cleaned = engine.remove_specific_column(st.session_state['df'])
-            st.session_state['df_cleaned'] = df_cleaned # Save to session state
-            st.success("Columns removed successfully!")
+with col1:
+    st.subheader("Optimizer")
+    if st.button("Convert CSV to Parquet (Run Once)"):
+        with st.spinner("Converting 16GB CSV... this will take a few minutes"):
+            success = data_engine.convert_csv_to_parquet(CSV_PATH, PARQUET_PATH)
+            if success:
+                st.success("Conversion Complete!")
+                st.info(f"Parquet Size: {get_dir_size_gb(PARQUET_PATH):.2f} GB (vs ~16GB CSV)")
+            else:
+                st.error("Conversion failed. Check memory/logs.")
 
-    # Display results if the cleaned data exists in the session
-    if 'df_cleaned' in st.session_state:
-        df_c = st.session_state['df_cleaned']
-        col1, col2 = st.columns(2)
-        col1.metric("Original Columns", len(st.session_state['df'].columns))
-        col2.metric("New Columns", len(df_c.columns))
-        st.dataframe(df_c.limit(5).toPandas())
-else:
-    st.info("Waiting for Data")
+with col2:
+    st.subheader("Loader")
+    if os.path.exists(FINAL_EXPORT_PATH):
+        load_mode = st.radio("Source:", ["Labeled Results", "Optimized Parquet", "Raw CSV Sample"], horizontal=True)
+    elif os.path.exists(PARQUET_PATH):
+        load_mode = st.radio("Source:", ["Optimized Parquet", "Raw CSV Sample"], horizontal=True)
+    else:
+        load_mode = "Raw CSV Sample"
 
-# --- STEP 3: SAVE TO PARQUET ---
-st.divider()
-st.header("Step 3: Compress & Save")
+    if st.button("Connect & Load"):
+        with st.spinner("Loading into Spark..."):
+            if load_mode == "Labeled Results":
+                df = data_engine.spark.read.parquet(FINAL_EXPORT_PATH)
+            elif load_mode == "Optimized Parquet":
+                df = data_engine.spark.read.parquet(PARQUET_PATH)
+            else:
+                df = data_engine.load_dataset(CSV_PATH, PARQUET_PATH)
+            
+            if df:
+                st.session_state['df'] = df
+                st.session_state['load_mode'] = load_mode
+                st.success(f"Connected to {load_mode}!")
 
-if 'df_cleaned' in st.session_state:
-    if st.button("Start Compression"):
-        start_time = time.time()
-        with st.spinner("Writing Parquet"):
-            try:
-                engine.save_as_parquet(st.session_state['df_cleaned'], PARQUET_PATH)
-                duration = time.time() - start_time
-                st.success(f"File saved in {duration:.1f} seconds!")
-                st.balloons()
-            except Exception as e:
-                st.error(f"Error: {e}")
-else:
-    st.warning("")  
-    
-    
-    
-    
-# --- STEP 3.5: EXPLORE SAVED DATA ---
-st.divider()
-st.header("Step 3.5: Open & Inspect Parquet")
-
-if st.button("Open Saved Parquet"):
-    try:
-        # Point Spark at the folder we saw in your terminal
-        saved_df = engine.get_spark().read.parquet(PARQUET_PATH)
-        
-        # Store it so Step 4 can use it
-        st.session_state['df_cleaned'] = saved_df
-        
-        # Show stats
-        row_count = saved_df.count()
-        st.success(f"Successfully opened Parquet! Total rows in sample: {row_count}")
-        
-        st.write("### Data Preview (First 10 rows)")
-        st.dataframe(saved_df.limit(10).toPandas())
-        
-        st.write("### Schema (Columns & Types)")
-        st.json(saved_df.schema.jsonValue())
-        
-    except Exception as e:
-        st.error(f"Could not open Parquet: {e}")
-        st.info("Tip: Make sure the _SUCCESS file exists in the folder.")    
-
-
-# --- STEP 4: VISUALIZATION ---
-st.divider()
-st.header("Step 4: Data Insights")
-
+# --- DATA INSIGHTS & PREVIEW ---
 if 'df' in st.session_state:
     df = st.session_state['df']
+    st.divider()
     
-    category_col = st.selectbox("Select category to visualize:", df.columns)
+    st.subheader("Dataset Insights")
+    m_col1, m_col2, m_col3 = st.columns(3)
     
-    if st.button("Generate Chart"):
-        with st.spinner("Calculating distributions..."):
-            # Spark handles the heavy counting on the Parquet data
-            counts = df.groupBy(category_col).count().orderBy("count", ascending=False).limit(10).toPandas()
-            
-            # Create a nice Plotly chart
-            fig = px.bar(counts, x=category_col, y="count", 
-                         title=f"Top 10 {category_col} Distribution",
-                         color="count", 
-                         color_continuous_scale='Viridis')
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            
+    with st.spinner("Calculating dataset metadata..."):
+        row_count = df.count()
+        current_columns = df.columns
+    
+    m_col1.metric("Total Rows", f"{row_count:,}")
+    m_col2.metric("Features (Columns)", len(current_columns))
+    
+    if st.session_state.get('load_mode') == "Optimized Parquet":
+        size_gb = get_dir_size_gb(PARQUET_PATH)
+        m_col3.metric("Disk Usage", f"{size_gb:.2f} GB", delta="-85% vs CSV")
 
-# --- STEP 1: LOAD FROM KAGGLE ---
-st.header("Step 1: Fetch Kaggle Data")
-
-# The slug for your specific dataset
-dataset_slug = "akshaydattatraykhare/car-details-dataset" 
-
-if st.button("Download & Connect to Kaggle"):
-    with st.spinner("Downloading from Kaggle..."):
-        try:
-            # 1. Download files using the function in engine.py
-            # This saves files to your /app/data/ directory
-            downloaded_files = engine.download_from_kaggle(dataset_slug, "/app/data/")
+    # --- NEW: Feature List Section ---
+    with st.expander("🔍 View All Available Features (Columns)"):
+        st.write(f"The following **{len(current_columns)}** columns were retained after cleaning:")
+        
+        # Displaying columns in a clean 4-column grid
+        cols = st.columns(4)
+        for i, column_name in enumerate(sorted(current_columns)):
+            cols[i % 4].code(column_name)
             
-            # 2. Find the CSV file in the downloaded list
-            csv_files = [f for f in downloaded_files if f.endswith('.csv')]
+    # PREVIEW
+    st.subheader("Data Preview (Top 10)")
+    has_engine_data = "cylinders" in df.columns
+    if has_engine_data:
+        matched_df = df.filter(F.col("cylinders").isNotNull()).limit(10).toPandas()
+        st.dataframe(matched_df if not matched_df.empty else df.limit(10).toPandas(), use_container_width=True)
+    else:
+        st.dataframe(df.limit(10).toPandas(), use_container_width=True)
+
+# --- STEP 2: MAPPING GENERATION ---
+st.divider()
+st.header("Step 2: Engine Mapping")
+map_limit = st.number_input("Patterns to map", value=1000, min_value=1)
+
+if st.button("Run Mapping Process"):
+    if 'df' in st.session_state:
+        working_df = st.session_state['df']
+        # If we are working with the full 16GB file, we MUST sample for the API
+        if st.session_state.get('load_mode') == "Optimized Parquet":
+            working_df = working_df.sample(False, 0.01, seed=42)
+            st.warning("Using 1% sample of Parquet for API mapping to prevent network timeout.")
+
+        progress_bar = st.progress(0)
+        mapping_df = data_engine.create_mapping_file(working_df, MAPPING_PATH, progress_bar, limit=map_limit)
+        
+        if mapping_df is not None:
+            final_df = data_engine.label_dataset(st.session_state['df'], MAPPING_PATH)
+            st.session_state['final_df'] = final_df 
             
-            if not csv_files:
-                st.error("No CSV file found in the downloaded Kaggle dataset.")
-            else:
-                # Use the first CSV found
-                target_csv = f"/app/data/{csv_files[0]}"
-                
-                # 3. Load into Spark using your existing engine function
-                df = engine.load_dataset(target_csv, PARQUET_PATH)
-                
-                # 4. Store in session state
-                st.session_state['df'] = df
-                
-                st.success(f"Connected! Loaded file: {csv_files[0]}")
-                st.dataframe(df.limit(10).toPandas())
-                
-        except Exception as e:
-            st.error(f"Error connecting to Kaggle: {e}")
-            st.info("Check if your KAGGLE_USERNAME and KAGGLE_KEY are set in your environment.")
+            with st.spinner("Calculating match success..."):
+                match_count = final_df.filter(F.col("cylinders").isNotNull()).count()
+                st.metric("Successful Matches Found", f"{match_count:,}")
+                st.dataframe(final_df.filter(F.col("cylinders").isNotNull()).limit(10).toPandas())
+    else:
+        st.error("Please load data in Step 1.")
+
+# --- STEP 3: FINAL EXPORT ---
+st.divider()
+st.header("Step 3: Save Processed Data")
+
+if st.button("Export Labeled Dataset"):
+    if 'final_df' in st.session_state:
+        with st.spinner("Saving results..."):
+            success = data_engine.save_final_dataset(st.session_state['final_df'], FINAL_EXPORT_PATH)
+            if success:
+                st.success(f"Saved to {FINAL_EXPORT_PATH}")
+                st.balloons()

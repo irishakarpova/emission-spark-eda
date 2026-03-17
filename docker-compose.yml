@@ -1,21 +1,25 @@
 services:
   spark-eda:
+    platform: linux/arm64
     build: .
     tty: true
     stdin_open: true
-    # This keeps the container awake so it doesn't stop immediately
     command: streamlit run app.py --server.port=8501 --server.address=0.0.0.0
     ports:
       - '8501:8501'
     volumes:
       - .:/app
       - '${DATA_PATH}:/app/data'
+    # Increase shm_size for Spark's shared memory
     shm_size: '2gb'
     deploy:
       resources:
         limits:
-          memory: 12G
+          # Lower this to 10G to save 2G for your Mac's OS
+          memory: 10G
     environment:
       - KAGGLE_USERNAME=${KAGGLE_USERNAME}
       - KAGGLE_KEY=${KAGGLE_KEY}
       - KAGGLE_CONFIG_DIR=/app
+      # Match this to your Spark Driver memory (from engine.py)
+      - _JAVA_OPTIONS="-Xmx6g -Xms2g"
