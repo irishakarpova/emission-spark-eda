@@ -60,7 +60,7 @@ class DataEngine:
                 "Wheel Removed 1", "Wheel Removed 2", "Wheel Removed 3", "Wheel Removed 4", "Vehicle Transmission Type", "Inspection Test Type", "Model Year Change"
             ]
         
-        # Normalized check: Spark is case-sensitive, so we handle both cases
+        # Normalized check
         existing_cols = df.columns
         to_drop = [c for c in existing_cols if c.lower() in [rc.lower() for rc in cols_to_remove]]
         

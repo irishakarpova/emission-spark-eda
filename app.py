@@ -32,18 +32,18 @@ def get_dir_size_gb(path):
     return total / (1024**3)
 
 # --- STEP 1: DATA LOADING ---
-st.header("Step 1: Data Preparation.")
+st.header("Step 1: Data Loading...")
 
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Optimizer")
-    if st.button("Convert CSV to Parquet (Run Once)"):
-        with st.spinner("Converting 16GB CSV... this will take a few minutes"):
+    if st.button("Convert CSV to Parquet"):
+        with st.spinner("Converting CSV... "):
             success = data_engine.convert_csv_to_parquet(CSV_PATH, PARQUET_PATH)
             if success:
-                st.success("Conversion Complete!")
-                st.info(f"Parquet Size: {get_dir_size_gb(PARQUET_PATH):.2f} GB (vs ~16GB CSV)")
+                st.success("Conversion Complete")
+                st.info(f"Parquet Size: {get_dir_size_gb(PARQUET_PATH):.2f}")
             else:
                 st.error("Conversion failed. Check memory/logs.")
 
@@ -70,12 +70,12 @@ with col2:
                 st.session_state['load_mode'] = load_mode
                 st.success(f"Connected to {load_mode}!")
 
-# --- DATA INSIGHTS & PREVIEW ---
+# --- DATA PREVIEW ---
 if 'df' in st.session_state:
     df = st.session_state['df']
     st.divider()
     
-    st.subheader("Dataset Insights")
+    st.subheader("Dataset Preview")
     m_col1, m_col2, m_col3 = st.columns(3)
     
     with st.spinner("Calculating dataset metadata..."):
@@ -90,7 +90,7 @@ if 'df' in st.session_state:
         m_col3.metric("Disk Usage", f"{size_gb:.2f} GB", delta="-85% vs CSV")
 
     # --- NEW: Feature List Section ---
-    with st.expander("🔍 View All Available Features (Columns)"):
+    with st.expander("View All Available Features"):
         st.write(f"The following **{len(current_columns)}** columns were retained after cleaning:")
         
         # Displaying columns in a clean 4-column grid
@@ -99,7 +99,7 @@ if 'df' in st.session_state:
             cols[i % 4].code(column_name)
             
     # PREVIEW
-    st.subheader("Data Preview (Top 10)")
+    st.subheader("Data Preview")
     has_engine_data = "cylinders" in df.columns
     if has_engine_data:
         matched_df = df.filter(F.col("cylinders").isNotNull()).limit(10).toPandas()
@@ -115,7 +115,7 @@ map_limit = st.number_input("Patterns to map", value=1000, min_value=1)
 if st.button("Run Mapping Process"):
     if 'df' in st.session_state:
         working_df = st.session_state['df']
-        # If we are working with the full 16GB file, we MUST sample for the API
+
         if st.session_state.get('load_mode') == "Optimized Parquet":
             working_df = working_df.sample(False, 0.01, seed=42)
             st.warning("Using 1% sample of Parquet for API mapping to prevent network timeout.")
@@ -132,7 +132,7 @@ if st.button("Run Mapping Process"):
                 st.metric("Successful Matches Found", f"{match_count:,}")
                 st.dataframe(final_df.filter(F.col("cylinders").isNotNull()).limit(10).toPandas())
     else:
-        st.error("Please load data in Step 1.")
+        st.error("Load data in Step 1.")
 
 # --- STEP 3: FINAL EXPORT ---
 st.divider()
